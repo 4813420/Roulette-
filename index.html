@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#071b12">
+<title>Lucky Roulette</title>
+<style>
+:root{--green:#0d7d43;--green2:#18a35b;--red:#b51f2b;--black:#090909;--gold:#d5b45a}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 20%,#193d2b 0,#07100c 45%,#030504 100%);color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;justify-content:center}
+.app{width:min(1000px,100%);padding:18px 14px 30px}.card{background:#0b0f0dE8;border:1px solid #31503e;border-radius:24px;padding:18px;box-shadow:0 20px 70px #000b}
+h1{font-size:clamp(28px,6vw,44px);letter-spacing:3px;text-align:center;margin:4px 0 2px}.sub{text-align:center;color:#a9b5ae;margin-bottom:12px}
+.stage{width:min(760px,94vw);aspect-ratio:1;margin:auto;position:relative;touch-action:none}
+canvas{width:100%;height:100%;display:block}
+.ball{position:absolute;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#eee 45%,#aaa);box-shadow:0 0 8px #fff,0 3px 8px #000;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
+.pointer{position:absolute;left:50%;top:1%;transform:translateX(-50%);width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-top:26px solid var(--gold);filter:drop-shadow(0 2px 3px #000);z-index:3}
+.controls{display:grid;gap:10px;margin-top:12px}textarea{width:100%;min-height:130px;background:#070908;color:#fff;border:1px solid #3b5145;border-radius:14px;padding:13px;font:500 16px/1.45 system-ui;resize:vertical}
+button{border:0;border-radius:14px;padding:15px 20px;background:linear-gradient(#18a35b,#0d7d43);color:white;font-size:18px;font-weight:800;letter-spacing:1px;cursor:pointer;box-shadow:0 7px 20px #0008}button:disabled{opacity:.5;cursor:not-allowed}.result{text-align:center;min-height:34px;font-size:22px;font-weight:800;margin-top:3px}.hint{text-align:center;color:#87948d;font-size:13px}
+</style>
+</head>
+<body><main class="app"><section class="card">
+<h1>LUCKY ROULETTE</h1><div class="sub">Tvoje slová. Tvoje pravidlá. Náhodná guľôčka.</div>
+<div class="stage" id="stage"><div class="pointer"></div><canvas id="wheel" width="900" height="900"></canvas><div class="ball" id="ball"></div></div>
+<div class="controls">
+<textarea id="items" aria-label="Políčka">Výhra 1
+Výhra 2
+Výhra 3
+Výhra 4
+Výhra 5
+Výhra 6
+Výhra 7
+Výhra 8
+Výhra 9
+Výhra 10
+Výhra 11
+Výhra 12</textarea>
+<button id="spin">TOČIŤ GUĽÔČKU</button>
+<div id="result" class="result"></div>
+<div class="hint">Každý riadok je jedno políčko. Prvé políčko je zelené, ostatné sa striedajú červená / čierna.</div>
+</div>
+</section></main>
+<script>
+const canvas=document.getElementById('wheel'),ctx=canvas.getContext('2d'),ball=document.getElementById('ball'),stage=document.getElementById('stage'),ta=document.getElementById('items'),btn=document.getElementById('spin'),res=document.getElementById('result');
+let rotation=0,ballA=-Math.PI/2,locked=false;
+const TAU=Math.PI*2;
+function getItems(){return ta.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)}
+function draw(){
+ const a=getItems(),n=Math.max(2,a.length),cx=450,cy=450,R=380;
+ ctx.clearRect(0,0,900,900);
+ ctx.beginPath();ctx.arc(cx,cy,R+32,0,TAU);ctx.fillStyle='#050505';ctx.fill();ctx.strokeStyle='#d5b45a';ctx.lineWidth=9;ctx.stroke();
+ for(let i=0;i<n;i++){
+   const a0=rotation+i*TAU/n-Math.PI/2,a1=rotation+(i+1)*TAU/n-Math.PI/2;
+   ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,R,a0,a1);ctx.closePath();
+   ctx.fillStyle=i===0?'#0d7d43':(i%2===1?'#0a0a0a':'#b51f2b');ctx.fill();
+   ctx.strokeStyle='#eee';ctx.lineWidth=2.5;ctx.stroke();
+   ctx.save();ctx.translate(cx,cy);ctx.rotate((a0+a1)/2);
+   ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font=`800 ${Math.max(13,Math.min(25,300/n))}px system-ui`;
+   ctx.fillText(a[i].slice(0,25),R*.72,7);ctx.restore();
+ }
+ ctx.beginPath();ctx.arc(cx,cy,120,0,TAU);ctx.fillStyle='#111';ctx.fill();ctx.strokeStyle='#d5b45a';ctx.lineWidth=6;ctx.stroke();
+ ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='900 27px system-ui';ctx.fillText('LUCKY',cx,cy-4);ctx.fillText('ROULETTE',cx,cy+31);
+ updateBall();
+}
+function updateBall(){
+ const stageW=stage.clientWidth,stageH=stage.clientHeight;
+ const r=stageW*.43;
+ ball.style.left=(stageW/2+r*Math.cos(ballA))+'px';ball.style.top=(stageH/2+r*Math.sin(ballA))+'px';
+}
+function ease(t){return 1-Math.pow(1-t,5)}
+function spin(){
+ const a=getItems();if(locked||a.length<2)return;
+ locked=true;btn.disabled=true;res.textContent='';
+ const n=a.length,target=Math.floor(Math.random()*n),step=TAU/n;
+ // Rotate wheel so selected segment center ends under the fixed top pointer.
+ const desired=-(target+.5)*step;
+ const startRot=rotation,startBall=ballA,dur=5200,turns=7+Math.random()*2,start=performance.now();
+ let delta=desired-startRot;delta=((delta%TAU)+TAU)%TAU;delta+=turns*TAU;
+ function frame(now){
+  const t=Math.min(1,(now-start)/dur),e=ease(t);
+  rotation=startRot+delta*e;
+  ballA=startBall-(turns*TAU+Math.PI*.8)*e;
+  draw();
+  if(t<1)requestAnimationFrame(frame);else{
+   rotation=desired;ballA=-Math.PI/2;draw();res.textContent='🎯 '+a[target];locked=false;btn.disabled=false;
+  }
+ }
+ requestAnimationFrame(frame);
+}
+ta.addEventListener('input',()=>{if(!locked)draw()});window.addEventListener('resize',updateBall);btn.addEventListener('click',spin);draw();
+</script>
+</body></html>
